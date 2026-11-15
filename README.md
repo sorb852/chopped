@@ -4,7 +4,7 @@ A chip-8 interpreter written in Zig. Thought learning zig and getting into even 
 
 I guess you could say it was fun. (ignore the commits, or better yet, find my 7 iq pages)
 
-The zig version used in this project is v0.16.0 and depends on [raylib-zig](https://github.com/raylib-zig/raylib-zig).
+The zig version used in this project is v0.16.0 and depends on [raylib-zig](https://github.com/raylib-zig/raylib-zig). The project is MIT licensed so feel free to modify it.
 
 <!-- TODO: add a gif or something might be cool -->
 
