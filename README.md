@@ -67,7 +67,7 @@ The "VM" (it sounds cooler than emulator) can be accessed via `@import("chopped"
 
 ## Execution
 
-There is a `Chip8VM.tick_timers` function that should be called at **60Hz** and a `Chip8VM.step` function that can be called however fast you want. The step function is the fetch, decode, execute cycle of the emulator.
+There is a `Chip8VM.tick_timers` function that should be called at **60Hz** and a `Chip8VM.step` function that can be called however fast you want. The step function is the fetch, decode, execute cycle of the emulator. Though note that runtime errors like `error.StackOverflow` can also appear.
 
 `Chip8VM.poll_input` should also be called at whatever speeds and takes the index of the key (0x0-0xF corresponding to the chip8 keyboard input). Here is also where instructions like `Fx0A` waits for key presses.
 
@@ -77,3 +77,4 @@ Thanks to these resources and people I have been able to make this project. Than
 
 * [Cowgod's Chip-8 Technical Reference v1.0](http://devernay.free.fr/hacks/chip8/C8TECH10.HTM)
 * [Roms from loktar00's chip8 emulator](https://github.com/loktar00/chip8/tree/master/roms)
+* [Guide to making a CHIP-8 emulator by Tvil](https://tobiasvl.github.io/blog/write-a-chip-8-emulator/)
