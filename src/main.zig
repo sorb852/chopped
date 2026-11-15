@@ -178,6 +178,12 @@ pub fn main(init: std.process.Init) !void {
 
     var since_last_tick: f64 = 0;
 
+    const display_buffer = rl.loadRenderTexture(screenWidth, screenHeight) catch {
+        std.debug.print("error: failed to create dispaly texture", .{});
+        std.process.exit(1);
+    };
+    defer rl.unloadRenderTexture(display_buffer);
+
     while (!rl.windowShouldClose()) {
         since_last_tick += rl.getFrameTime();
 
@@ -219,13 +225,15 @@ pub fn main(init: std.process.Init) !void {
             },
         };
 
-        rl.beginDrawing();
-        defer rl.endDrawing(); // ok nvm this is cool asf
-
-        // TODO: toggle off needs_redraw and dont forget to change the README!
-
         if (chip8.needs_redraw) {
+            rl.beginTextureMode(display_buffer);
+            defer {
+                rl.endTextureMode();
+                chip8.needs_redraw = false;
+            }
+
             rl.clearBackground(background);
+
             var y: usize = 0;
             while (y < 32) : (y += 1) {
                 var x: usize = 0;
@@ -241,6 +249,20 @@ pub fn main(init: std.process.Init) !void {
                 }
             }
         }
+
+        rl.beginDrawing();
+        defer rl.endDrawing(); // ok nvm this is cool asf
+        rl.drawTextureRec(
+            display_buffer.texture,
+            .init(
+                0,
+                0,
+                @floatFromInt(display_buffer.texture.width),
+                @floatFromInt(-display_buffer.texture.height),
+            ),
+            .init(0, 0),
+            .white,
+        );
     }
 }
 
