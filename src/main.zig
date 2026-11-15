@@ -211,7 +211,13 @@ pub fn main(init: std.process.Init) !void {
             since_last_tick = 0;
         }
 
-        chip8.step();
+        chip8.step() catch |err| switch (err) {
+            error.StackOverflow => {
+                // TODO: Maybe add like diagnostics here too
+                std.debug.print("error: stack overflow detected", .{});
+                std.process.exit(1);
+            },
+        };
 
         rl.beginDrawing();
         defer rl.endDrawing(); // ok nvm this is cool asf

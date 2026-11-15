@@ -49,6 +49,9 @@ pub const Chip8VM = struct {
     /// Paired with `waiting_for_keypress`.
     /// Stores which register to write to.
     to_set_keypress_to: u4 = 0,
+    /// Whether the program halted.
+    /// Either through errors or being stuck at unknown instructions.
+    halted: bool = false,
 
     // Methods
 
@@ -56,6 +59,7 @@ pub const Chip8VM = struct {
     /// Given a reader to the file.
     pub fn init_rom(self: *Chip8VM, reader: *std.Io.Reader) error{ReadFailed}!void {
         _ = try reader.readSliceShort(self.memory[512..]);
+        self.halted = false;
     }
 
     /// Initialize the hex sprites.
@@ -154,8 +158,9 @@ pub const Chip8VM = struct {
     }
 
     /// Fetch, decode, execute cycle. considered a step and runs a single instruction.
-    pub fn step(self: *Chip8VM) void {
-        self.run_instruction();
+    pub fn step(self: *Chip8VM) error{StackOverflow}!void {
+        if (self.halted) return;
+        try self.run_instruction();
     }
 
     /// Poll input and change state.
@@ -175,7 +180,7 @@ pub const Chip8VM = struct {
     }
     /// Runs current insturction at PC.
     /// With the exception being when LDVK. Which doesn't do anything.
-    fn run_instruction(self: *Chip8VM) void {
+    fn run_instruction(self: *Chip8VM) error{StackOverflow}!void {
         if (self.waiting_for_keypress) return;
 
         const instruction = (@as(u16, self.memory[self.PC]) << 8) | self.memory[self.PC + 1];
@@ -205,7 +210,7 @@ pub const Chip8VM = struct {
                 }
             },
             0x1 => self.JP(addr),
-            0x2 => self.CALL(addr),
+            0x2 => try self.CALL(addr),
             0x3 => self.SE(x, byte),
             0x4 => self.SNE(x, byte),
             0x5 => self.SEV(x, y),
@@ -282,8 +287,11 @@ pub const Chip8VM = struct {
     }
     /// Call a subroutine
     /// 2nnn - CALL addr
-    /// FIX: stack overflow
-    fn CALL(self: *Chip8VM, addr: u12) void {
+    fn CALL(self: *Chip8VM, addr: u12) error{StackOverflow}!void {
+        if (self.SP >= self.stack.len) {
+            self.halted = true;
+            return error.StackOverflow;
+        }
         self.SP += 1;
         self.stack[self.SP] = self.PC;
         self.PC = addr;
