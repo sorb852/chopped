@@ -4,6 +4,50 @@
 
 const std = @import("std");
 
+/// Instruction set for the Chip-8
+/// Used as arguments between the VM.
+const Instructions = union(enum) {
+    CLS: struct {},
+    RET: struct {},
+
+    JP: struct { addr: u12 },
+    CALL: struct { addr: u12 },
+    SE: struct { x: u4, byte: u8 },
+    SNE: struct { x: u4, byte: u8 },
+    SEV: struct { x: u4, y: u4 },
+    LD: struct { x: u4, byte: u8 },
+    ADD: struct { x: u4, byte: u8 },
+
+    LDV: struct { x: u4, y: u4 },
+    OR: struct { x: u4, y: u4 },
+    AND: struct { x: u4, y: u4 },
+    XOR: struct { x: u4, y: u4 },
+    ADDV: struct { x: u4, y: u4 },
+    SUB: struct { x: u4, y: u4 },
+    SHR: struct { x: u4, y: u4 },
+    SUBN: struct { x: u4, y: u4 },
+    SHL: struct { x: u4, y: u4 },
+
+    SNEV: struct { x: u4, y: u4 },
+    LDI: struct { addr: u12 },
+    JPV: struct { addr: u12 },
+    RND: struct { x: u4, byte: u8 },
+    DRW: struct { x: u4, y: u4, nibble: u4 },
+
+    SKP: struct { x: u4 },
+    SKNP: struct { x: u4 },
+
+    LDVDT: struct { x: u4 },
+    LDVK: struct { x: u4 },
+    LDDTV: struct { x: u4 },
+    LDSTV: struct { x: u4 },
+    ADDI: struct { x: u4 },
+    LDIVX: struct { x: u4 },
+    LDBVX: struct { x: u4 },
+    LDIV0VX: struct { x: u4 },
+    LDV0VXI: struct { x: u4 },
+};
+
 /// Chip8 virtual machine. ie, the backend.
 /// Handles most of the action.
 /// Running games, "*managing*" memory, storing registers and all that.
@@ -231,7 +275,7 @@ pub const Chip8VM = struct {
                     matched_instruction = false;
                 },
             },
-            0x9 => self.SNE(x, y),
+            0x9 => self.SNEV(x, y),
             0xA => self.LDI(addr),
             0xB => self.JPV(addr),
             0xC => self.RND(x, byte),
