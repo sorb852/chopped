@@ -411,7 +411,6 @@ pub const Chip8VM = struct {
     }
     /// Set *Vx* = *random byte* & *byte*
     /// Cxkk - RND Vx, byte
-    // TODO: make rand part of the VM rather than the instruction
     fn RND(self: *Chip8VM, x: u4, byte: u8) void {
         self.V[x] = self.rand.intRangeAtMost(u8, 0, 255) & byte;
         self.PC += 2;
