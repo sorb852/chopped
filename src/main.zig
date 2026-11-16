@@ -1,4 +1,5 @@
 // TODO: Sound timer useless, make it not
+// TODO: make all logs use `std.log`
 
 const std = @import("std");
 const rl = @import("raylib");
@@ -13,20 +14,20 @@ const DEFAULT_FOREGROUND: rl.Color = .white;
 const DEFAULT_BACKGROUND: rl.Color = .black;
 
 /// Prints the help information onto stderr
-/// TODO: Move to stdout
-fn print_help(executable: []const u8) void {
-    std.debug.print("Usage: {s} [OPTIONS] <FILE>\n", .{executable});
-    std.debug.print("\n", .{});
-    std.debug.print("Arguments:\n", .{});
-    std.debug.print("\t<FILE>   The chip8 file to be executed.\n", .{});
-    std.debug.print("\n", .{});
-    std.debug.print("Options:\n", .{});
-    std.debug.print("\t--help, -h                            Display help information.\n", .{});
-    std.debug.print("\t--fg <HEX_COLOR>                      Change the foreground of the program. Default {s}.\n", .{color_to_hex(DEFAULT_FOREGROUND)});
-    std.debug.print("\t--bg <HEX_COLOR>                      Change the background of the program. Default {s}.\n", .{color_to_hex(DEFAULT_BACKGROUND)});
-    std.debug.print("\t--disable-raylib-logging              Disable raylib logs.\n", .{});
-    std.debug.print("\t--scale <SCALE>, -s <SCALE>           Change the size of each pixel. Default {}px.\n", .{DEFAULT_SCALE});
-    std.debug.print("\t--target-tickrate <RATE>, -t <RATE>   Change the tick rate of the emulator. Default {}Hz.\n", .{DEFAULT_TICK_RATE});
+fn print_help(executable: []const u8, writer: *std.Io.Writer) !void {
+    try writer.print("Usage: {s} [OPTIONS] <FILE>\n", .{executable});
+    try writer.print("\n", .{});
+    try writer.print("Arguments:\n", .{});
+    try writer.print("\t<FILE>   The chip8 file to be executed.\n", .{});
+    try writer.print("\n", .{});
+    try writer.print("Options:\n", .{});
+    try writer.print("\t--help, -h                            Display help information.\n", .{});
+    try writer.print("\t--fg <HEX_COLOR>                      Change the foreground of the program. Default {s}.\n", .{color_to_hex(DEFAULT_FOREGROUND)});
+    try writer.print("\t--bg <HEX_COLOR>                      Change the background of the program. Default {s}.\n", .{color_to_hex(DEFAULT_BACKGROUND)});
+    try writer.print("\t--disable-raylib-logging              Disable raylib logs.\n", .{});
+    try writer.print("\t--scale <SCALE>, -s <SCALE>           Change the size of each pixel. Default {}px.\n", .{DEFAULT_SCALE});
+    try writer.print("\t--target-tickrate <RATE>, -t <RATE>   Change the tick rate of the emulator. Default {}Hz.\n", .{DEFAULT_TICK_RATE});
+    try writer.flush();
 }
 
 pub fn main(init: std.process.Init) !void {
@@ -38,11 +39,17 @@ pub fn main(init: std.process.Init) !void {
     var foreground = DEFAULT_FOREGROUND;
     var background = DEFAULT_BACKGROUND;
 
+    var stdout_buffer: [4096]u8 = undefined;
+    var stdout = std.Io.File.stdout().writer(init.io, &stdout_buffer);
+
     var args = init.minimal.args.iterate();
     const executable = std.fs.path.stem(args.next().?);
     while (args.next()) |arg| {
         if (std.ascii.eqlIgnoreCase(arg, "--help") or std.ascii.eqlIgnoreCase(arg, "-h")) {
-            print_help(executable);
+            print_help(executable, &stdout.interface) catch {
+                std.debug.print("error: failed to write help message\n", .{});
+                std.process.exit(1);
+            };
             std.process.exit(0);
         }
 
@@ -179,7 +186,7 @@ pub fn main(init: std.process.Init) !void {
     var since_last_tick: f64 = 0;
 
     const display_buffer = rl.loadRenderTexture(screenWidth, screenHeight) catch {
-        std.debug.print("error: failed to create dispaly texture", .{});
+        std.debug.print("error: failed to create dispaly texture\n", .{});
         std.process.exit(1);
     };
     defer rl.unloadRenderTexture(display_buffer);
@@ -220,13 +227,13 @@ pub fn main(init: std.process.Init) !void {
         chip8.step() catch |err| switch (err) {
             error.StackOverflow => {
                 // TODO: Maybe add like diagnostics here too
-                std.debug.print("error: stack overflow detected", .{});
+                std.debug.print("error: stack overflow detected\n", .{});
                 std.process.exit(1);
             },
             error.UnknownInstruction => {
-                std.debug.print("error: unknown instruction found at address 0x{x:0>3}", .{chip8.PC});
+                std.debug.print("error: unknown instruction found at address 0x{x:0>3}\n", .{chip8.PC});
                 std.process.exit(1);
-            }
+            },
         };
 
         if (chip8.needs_redraw) {
