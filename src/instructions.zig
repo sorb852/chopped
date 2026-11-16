@@ -41,6 +41,7 @@ pub const Instruction = union(enum) {
     LDIV0VX: struct { x: u4 },
     LDV0VXI: struct { x: u4 },
 
+    /// Parses a 16 bit instruction into itself.
     pub fn parse(instruction: u16) error{UnknownInstruction}!Instruction {
         // oh right bit masks exist
         const header: u4 = @truncate((instruction & 0xF000) >> 12);
