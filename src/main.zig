@@ -24,7 +24,7 @@ fn print_help(executable: []const u8, writer: *std.Io.Writer) !void {
     try writer.print("\t--help, -h                            Display help information.\n", .{});
     try writer.print("\t--fg <HEX_COLOR>                      Change the foreground of the program. Default {s}.\n", .{color_to_hex(DEFAULT_FOREGROUND)});
     try writer.print("\t--bg <HEX_COLOR>                      Change the background of the program. Default {s}.\n", .{color_to_hex(DEFAULT_BACKGROUND)});
-    try writer.print("\t--disable-raylib-logging              Disable raylib logs.\n", .{});
+    try writer.print("\t--enable-raylib-logging               Enable raylib logs.\n", .{});
     try writer.print("\t--scale <SCALE>, -s <SCALE>           Change the size of each pixel. Default {}px.\n", .{DEFAULT_SCALE});
     try writer.print("\t--target-tickrate <RATE>, -t <RATE>   Change the tick rate of the emulator. Default {}Hz.\n", .{DEFAULT_TICK_RATE});
     try writer.flush();
@@ -34,7 +34,7 @@ pub fn main(init: std.process.Init) !void {
     // CLI arguments
     var rom_path: ?[:0]const u8 = null;
     var target_tickrate = DEFAULT_TICK_RATE;
-    var raylib_logging = true;
+    var raylib_logging = false;
     var scale = DEFAULT_SCALE;
     var foreground = DEFAULT_FOREGROUND;
     var background = DEFAULT_BACKGROUND;
@@ -53,8 +53,8 @@ pub fn main(init: std.process.Init) !void {
             std.process.exit(0);
         }
 
-        if (std.ascii.eqlIgnoreCase(arg, "--disable-raylib-logging")) {
-            raylib_logging = false;
+        if (std.ascii.eqlIgnoreCase(arg, "--enable-raylib-logging")) {
+            raylib_logging = true;
             continue;
         }
 
