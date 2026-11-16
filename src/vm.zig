@@ -43,6 +43,25 @@ pub const Chip8VM = struct {
     /// The rng of the Chip8, set as you please.
     rand: std.Random,
 
+    font: [80]u8 = .{
+        0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+        0x20, 0x60, 0x20, 0x20, 0x70, // 1
+        0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
+        0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
+        0x90, 0x90, 0xF0, 0x10, 0x10, // 4
+        0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
+        0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
+        0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+        0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
+        0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
+        0xF0, 0x90, 0xF0, 0x90, 0x90, // A
+        0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
+        0xF0, 0x80, 0x80, 0x80, 0xF0, // C
+        0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+        0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
+        0xF0, 0x80, 0xF0, 0x80, 0x80, // F
+    },
+
     /// Tells the frontend of the interpreter to redraw.
     /// Dont wanna be redrawing everything would you?
     needs_redraw: bool = true,
@@ -67,90 +86,7 @@ pub const Chip8VM = struct {
     /// Initialize the hex sprites.
     /// Starts from 0 to 79, with each sprite having 5 bytes.
     pub fn init_sprites(self: *Chip8VM) void {
-        // im so fucking lazy
-        // im js gonna make gemini do this like its so damn boring
-        // OOOOR GET PYTHON TO DO IT
-        self.memory[0] = 0xF0;
-        self.memory[1] = 0x90;
-        self.memory[2] = 0x90;
-        self.memory[3] = 0x90;
-        self.memory[4] = 0xF0;
-        self.memory[5] = 0x20;
-        self.memory[6] = 0x60;
-        self.memory[7] = 0x20;
-        self.memory[8] = 0x20;
-        self.memory[9] = 0x70;
-        self.memory[10] = 0xF0;
-        self.memory[11] = 0x10;
-        self.memory[12] = 0xF0;
-        self.memory[13] = 0x80;
-        self.memory[14] = 0xF0;
-        self.memory[15] = 0xF0;
-        self.memory[16] = 0x10;
-        self.memory[17] = 0xF0;
-        self.memory[18] = 0x10;
-        self.memory[19] = 0xF0;
-        self.memory[20] = 0x90;
-        self.memory[21] = 0x90;
-        self.memory[22] = 0xF0;
-        self.memory[23] = 0x10;
-        self.memory[24] = 0x10;
-        self.memory[25] = 0xF0;
-        self.memory[26] = 0x80;
-        self.memory[27] = 0xF0;
-        self.memory[28] = 0x10;
-        self.memory[29] = 0xF0;
-        self.memory[30] = 0xF0;
-        self.memory[31] = 0x80;
-        self.memory[32] = 0xF0;
-        self.memory[33] = 0x90;
-        self.memory[34] = 0xF0;
-        self.memory[35] = 0xF0;
-        self.memory[36] = 0x10;
-        self.memory[37] = 0x20;
-        self.memory[38] = 0x40;
-        self.memory[39] = 0x40;
-        self.memory[40] = 0xF0;
-        self.memory[41] = 0x90;
-        self.memory[42] = 0xF0;
-        self.memory[43] = 0x90;
-        self.memory[44] = 0xF0;
-        self.memory[45] = 0xF0;
-        self.memory[46] = 0x90;
-        self.memory[47] = 0xF0;
-        self.memory[48] = 0x10;
-        self.memory[49] = 0xF0;
-        self.memory[50] = 0xF0;
-        self.memory[51] = 0x90;
-        self.memory[52] = 0xF0;
-        self.memory[53] = 0x90;
-        self.memory[54] = 0x90;
-        self.memory[55] = 0xE0;
-        self.memory[56] = 0x90;
-        self.memory[57] = 0xE0;
-        self.memory[58] = 0x90;
-        self.memory[59] = 0xE0;
-        self.memory[60] = 0xF0;
-        self.memory[61] = 0x80;
-        self.memory[62] = 0x80;
-        self.memory[63] = 0x80;
-        self.memory[64] = 0xF0;
-        self.memory[65] = 0xE0;
-        self.memory[66] = 0x90;
-        self.memory[67] = 0x90;
-        self.memory[68] = 0x90;
-        self.memory[69] = 0xE0;
-        self.memory[70] = 0xF0;
-        self.memory[71] = 0x80;
-        self.memory[72] = 0xF0;
-        self.memory[73] = 0x80;
-        self.memory[74] = 0xF0;
-        self.memory[75] = 0xF0;
-        self.memory[76] = 0x80;
-        self.memory[77] = 0xF0;
-        self.memory[78] = 0x80;
-        self.memory[79] = 0x80;
-        // HAHAHHAHHAHAH
+        @memcpy(self.memory[0..80], &self.font);
     }
 
     /// Ticks the timers. Should be run at 60Hz
@@ -168,8 +104,6 @@ pub const Chip8VM = struct {
 
         // Decode
         const instruction = try Instruction.parse(raw_instruction);
-
-        std.debug.print("0x{x:0>3}: {}\n", .{ self.PC, instruction });
 
         // Execute
         try self.execute(instruction);
