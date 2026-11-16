@@ -34,7 +34,7 @@ Options:
         --help, -h                            Display help information.
         --fg <HEX_COLOR>                      Change the foreground of the program. Default #ffffff.
         --bg <HEX_COLOR>                      Change the background of the program. Default #000000.
-        --disable-raylib-logging              Disable raylib logs.
+        --enable-raylib-logging               Enable raylib logs.
         --scale <SCALE>, -s <SCALE>           Change the size of each pixel. Default 16px.
         --target-tickrate <RATE>, -t <RATE>   Change the tick rate of the emulator. Default 240Hz.
 ```
@@ -67,7 +67,7 @@ The "VM" (it sounds cooler than emulator) can be accessed via `@import("chopped"
 
 ## Execution
 
-There is a `Chip8VM.tick_timers` function that should be called at **60Hz** and a `Chip8VM.step` function that can be called however fast you want. The step function is the fetch, decode, execute cycle of the emulator. Though note that runtime errors like `error.StackOverflow` can also appear.
+There is a `Chip8VM.tick_timers` function that should be called at **60Hz** and a `Chip8VM.step` function that can be called however fast you want. The step function is the fetch, decode, execute cycle of the emulator. Though note that runtime errors like `error.StackOverflow` and `error.UnknownInstruction` can also appear.
 
 `Chip8VM.poll_input` should also be called at whatever speeds and takes the index of the key (0x0-0xF corresponding to the chip8 keyboard input). Here is also where instructions like `Fx0A` waits for key presses.
 
@@ -78,3 +78,5 @@ Thanks to these resources and people I have been able to make this project. Than
 * [Cowgod's Chip-8 Technical Reference v1.0](http://devernay.free.fr/hacks/chip8/C8TECH10.HTM)
 * [Roms from loktar00's chip8 emulator](https://github.com/loktar00/chip8/tree/master/roms)
 * [Guide to making a CHIP-8 emulator by Tvil](https://tobiasvl.github.io/blog/write-a-chip-8-emulator/)
+* [Wikipedia page for Chip-8](https://en.wikipedia.org/wiki/CHIP-8#Virtual_machine_description)
+* [CHIP-8 Interpreter, Disassembler, and Debugger by sravan1946](https://sravan1946.github.io/chip8/) (nvm forked from [shadercrash and JohnKiller](https://github.com/shadecrash/chip8-interpreter-disassembler-debugger))
