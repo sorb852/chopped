@@ -7,8 +7,8 @@ const std = @import("std");
 /// Instruction set for the Chip-8
 /// Used as arguments between the VM.
 const Instruction = union(enum) {
-    CLS: struct {},
-    RET: struct {},
+    CLS,
+    RET,
 
     JP: struct { addr: u12 },
     CALL: struct { addr: u12 },
@@ -60,52 +60,50 @@ const Instruction = union(enum) {
         // std.debug.print("[INFO] header: 0x{x}, addr: 0x{x:0>3}, nibble: {}, x: {}, y: {}, byte: 0b{b:0>8}\n", .{ header, addr, nibble, x, y, byte });
 
         const match: ?Instruction = switch (header) {
-            0x0 => {
-                switch (instruction) {
-                    0x00E0 => .CLS,
-                    0x00EE => .RET,
-                    else => null,
-                }
-            },
-            0x1 => .JP{ .addr = addr },
-            0x2 => .CALL{ .addr = addr },
-            0x3 => .SE{ .x = x, .byte = byte },
-            0x4 => .SNE{ .x = x, .byte = byte },
-            0x5 => .SEV{ .x = x, .y = y },
-            0x6 => .LD{ .x = x, .byte = byte },
-            0x7 => .ADD{ .x = x, .byte = byte },
-            0x8 => switch (nibble) {
-                0x0 => .LDV{ .x = x, .y = y },
-                0x1 => .OR{ .x = x, .y = y },
-                0x2 => .AND{ .x = x, .y = y },
-                0x3 => .XOR{ .x = x, .y = y },
-                0x4 => .ADDV{ .x = x, .y = y },
-                0x5 => .SUB{ .x = x, .y = y },
-                0x6 => .SHR{ .x = x, .y = y },
-                0x7 => .SUBN{ .x = x, .y = y },
-                0xE => .SHL{ .x = x, .y = y },
+            0x0 => switch (instruction) {
+                0x00E0 => .CLS,
+                0x00EE => .RET,
                 else => null,
             },
-            0x9 => .SNEV{ .x = x, .y = y },
-            0xA => .LDI{ .addr = addr },
-            0xB => .JPV{ .addr = addr },
-            0xC => .RND{ .x = x, .byte = byte },
-            0xD => .DRW{ .x = x, .y = y, .nibble = nibble },
+            0x1 => .{ .JP = .{ .addr = addr } },
+            0x2 => .{ .CALL = .{ .addr = addr } },
+            0x3 => .{ .SE = .{ .x = x, .byte = byte } },
+            0x4 => .{ .SNE = .{ .x = x, .byte = byte } },
+            0x5 => .{ .SEV = .{ .x = x, .y = y } },
+            0x6 => .{ .LD = .{ .x = x, .byte = byte } },
+            0x7 => .{ .ADD = .{ .x = x, .byte = byte } },
+            0x8 => switch (nibble) {
+                0x0 => .{ .LDV = .{ .x = x, .y = y } },
+                0x1 => .{ .OR = .{ .x = x, .y = y } },
+                0x2 => .{ .AND = .{ .x = x, .y = y } },
+                0x3 => .{ .XOR = .{ .x = x, .y = y } },
+                0x4 => .{ .ADDV = .{ .x = x, .y = y } },
+                0x5 => .{ .SUB = .{ .x = x, .y = y } },
+                0x6 => .{ .SHR = .{ .x = x, .y = y } },
+                0x7 => .{ .SUBN = .{ .x = x, .y = y } },
+                0xE => .{ .SHL = .{ .x = x, .y = y } },
+                else => null,
+            },
+            0x9 => .{ .SNEV = .{ .x = x, .y = y } },
+            0xA => .{ .LDI = .{ .addr = addr } },
+            0xB => .{ .JPV = .{ .addr = addr } },
+            0xC => .{ .RND = .{ .x = x, .byte = byte } },
+            0xD => .{ .DRW = .{ .x = x, .y = y, .nibble = nibble } },
             0xE => switch (byte) {
-                0x9E => .SKP{ .x = x },
-                0xA1 => .SKNP{ .x = x },
+                0x9E => .{ .SKP = .{ .x = x } },
+                0xA1 => .{ .SKNP = .{ .x = x } },
                 else => null,
             },
             0xF => switch (byte) {
-                0x07 => .LDVDT{ .x = x },
-                0x0A => .LDVK{ .x = x },
-                0x15 => .LDDTV{ .x = x },
-                0x18 => .LDSTV{ .x = x },
-                0x1E => .ADDI{ .x = x },
-                0x29 => .LDIVX{ .x = x },
-                0x33 => .LDBVX{ .x = x },
-                0x55 => .LDIV0VX{ .x = x },
-                0x65 => .LDV0VXI{ .x = x },
+                0x07 => .{ .LDVDT = .{ .x = x } },
+                0x0A => .{ .LDVK = .{ .x = x } },
+                0x15 => .{ .LDDTV = .{ .x = x } },
+                0x18 => .{ .LDSTV = .{ .x = x } },
+                0x1E => .{ .ADDI = .{ .x = x } },
+                0x29 => .{ .LDIVX = .{ .x = x } },
+                0x33 => .{ .LDBVX = .{ .x = x } },
+                0x55 => .{ .LDIV0VX = .{ .x = x } },
+                0x65 => .{ .LDV0VXI = .{ .x = x } },
                 else => null,
             },
         };
@@ -274,7 +272,17 @@ pub const Chip8VM = struct {
     /// Fetch, decode, execute cycle. considered a step and runs a single instruction.
     pub fn step(self: *Chip8VM) !void {
         if (self.halted) return;
-        try self.run_instruction();
+
+        // Fetch
+        const raw_instruction = (@as(u16, self.memory[self.PC]) << 8) | self.memory[self.PC + 1];
+
+        // Decode
+        const instruction = try Instruction.parse(raw_instruction);
+
+        std.debug.print("0x{x:0>3}: {}\n", .{ self.PC, instruction });
+
+        // Execute
+        try self.execute(instruction);
     }
 
     /// Poll input and change state.
@@ -295,90 +303,48 @@ pub const Chip8VM = struct {
 
     /// Runs current insturction at PC.
     /// With the exception being when LDVK. Which doesn't do anything.
-    fn run_instruction(self: *Chip8VM) error{ StackOverflow, UnknownInstruction }!void {
+    fn execute(self: *Chip8VM, instruction: Instruction) !void {
         if (self.waiting_for_keypress) return;
 
-        const instruction = (@as(u16, self.memory[self.PC]) << 8) | self.memory[self.PC + 1];
+        switch (instruction) {
+            .CLS => self.CLS(),
+            .RET => self.RET(),
 
-        // oh right bit masks exist
-        const header: u4 = @truncate((instruction & 0xF000) >> 12);
-        const addr: u12 = @truncate((instruction & 0x0FFF) >> 0);
-        const nibble: u4 = @truncate((instruction & 0x000F) >> 0);
-        const x: u4 = @truncate((instruction & 0x0F00) >> 8);
-        const y: u4 = @truncate((instruction & 0x00F0) >> 4);
-        const byte: u8 = @truncate((instruction & 0x00FF) >> 0);
+            .JP => |payload| self.JP(payload.addr),
+            .CALL => |payload| try self.CALL(payload.addr),
+            .SE => |payload| self.SE(payload.x, payload.byte),
+            .SNE => |payload| self.SNE(payload.x, payload.byte),
+            .SEV => |payload| self.SEV(payload.x, payload.y),
+            .LD => |payload| self.LD(payload.x, payload.byte),
+            .ADD => |payload| self.ADD(payload.x, payload.byte),
+            .LDV => |payload| self.LDV(payload.x, payload.y),
+            .OR => |payload| self.OR(payload.x, payload.y),
+            .AND => |payload| self.AND(payload.x, payload.y),
+            .XOR => |payload| self.XOR(payload.x, payload.y),
+            .ADDV => |payload| self.ADDV(payload.x, payload.y),
+            .SUB => |payload| self.SUB(payload.x, payload.y),
+            .SHR => |payload| self.SHR(payload.x, payload.y),
+            .SUBN => |payload| self.SUBN(payload.x, payload.y),
+            .SHL => |payload| self.SHL(payload.x, payload.y),
 
-        // std.debug.print("[INFO] Matching instruction at 0x{x:0>3}: 0x{x:0>4}\n", .{ self.PC, instruction });
-        // std.debug.print("[INFO] header: 0x{x}, addr: 0x{x:0>3}, nibble: {}, x: {}, y: {}, byte: 0b{b:0>8}\n", .{ header, addr, nibble, x, y, byte });
+            .SNEV => |payload| self.SNEV(payload.x, payload.y),
+            .LDI => |payload| self.LDI(payload.addr),
+            .JPV => |payload| self.JPV(payload.addr),
+            .RND => |payload| self.RND(payload.x, payload.byte),
+            .DRW => |payload| self.DRW(payload.x, payload.y, payload.nibble),
 
-        var matched_instruction = true;
+            .SKP => |payload| self.SKP(payload.x),
+            .SKNP => |payload| self.SKNP(payload.x),
 
-        switch (header) {
-            0x0 => {
-                switch (instruction) {
-                    0x00E0 => self.CLS(),
-                    0x00EE => self.RET(),
-                    else => {
-                        // std.debug.print("[FAIL] Unknown instruction at 0x{x:0>3}: 0x{x:0>4}\n", .{ self.PC, instruction });
-                        matched_instruction = false;
-                    },
-                }
-            },
-            0x1 => self.JP(addr),
-            0x2 => try self.CALL(addr),
-            0x3 => self.SE(x, byte),
-            0x4 => self.SNE(x, byte),
-            0x5 => self.SEV(x, y),
-            0x6 => self.LD(x, byte),
-            0x7 => self.ADD(x, byte),
-            0x8 => switch (nibble) {
-                0x0 => self.LDV(x, y),
-                0x1 => self.OR(x, y),
-                0x2 => self.AND(x, y),
-                0x3 => self.XOR(x, y),
-                0x4 => self.ADDV(x, y),
-                0x5 => self.SUB(x, y),
-                0x6 => self.SHR(x, y),
-                0x7 => self.SUBN(x, y),
-                0xE => self.SHL(x, y),
-                else => {
-                    // std.debug.print("[FAIL] Unknown instruction at 0x{x:0>3}: 0x{x:0>4}\n", .{ self.PC, instruction });
-                    matched_instruction = false;
-                },
-            },
-            0x9 => self.SNEV(x, y),
-            0xA => self.LDI(addr),
-            0xB => self.JPV(addr),
-            0xC => self.RND(x, byte),
-            0xD => self.DRW(x, y, nibble),
-            0xE => switch (byte) {
-                0x9E => self.SKP(x),
-                0xA1 => self.SKNP(x),
-                else => {
-                    // std.debug.print("[FAIL] Unknown instruction at 0x{x:0>3}: 0x{x:0>4}\n", .{ self.PC, instruction });
-                    matched_instruction = false;
-                },
-            },
-            0xF => switch (byte) {
-                0x07 => self.LDVDT(x),
-                0x0A => self.LDVK(x),
-                0x15 => self.LDDTV(x),
-                0x18 => self.LDSTV(x),
-                0x1E => self.ADDI(x),
-                0x29 => self.LDIVX(x),
-                0x33 => self.LDBVX(x),
-                0x55 => self.LDIV0VX(x),
-                0x65 => self.LDV0VXI(x),
-                else => {
-                    // std.debug.print("[FAIL] Unknown instruction at 0x{x:0>3}: 0x{x:0>4}\n", .{ self.PC, instruction });
-                    matched_instruction = false;
-                },
-            },
-        }
-
-        if (!matched_instruction) {
-            self.halted = true;
-            return error.UnknownInstruction;
+            .LDVDT => |payload| self.LDVDT(payload.x),
+            .LDVK => |payload| self.LDVK(payload.x),
+            .LDDTV => |payload| self.LDDTV(payload.x),
+            .LDSTV => |payload| self.LDSTV(payload.x),
+            .ADDI => |payload| self.ADDI(payload.x),
+            .LDIVX => |payload| self.LDIVX(payload.x),
+            .LDBVX => |payload| self.LDBVX(payload.x),
+            .LDIV0VX => |payload| self.LDIV0VX(payload.x),
+            .LDV0VXI => |payload| self.LDV0VXI(payload.x),
         }
     }
 
@@ -394,8 +360,8 @@ pub const Chip8VM = struct {
     /// Return from subroutine
     /// 00EE - RET
     fn RET(self: *Chip8VM) void {
-        self.PC = self.stack[self.SP];
         self.SP -= if (self.SP > 0) 1 else 0;
+        self.PC = self.stack[self.SP];
         self.PC += 2;
     }
     /// Jump to address
