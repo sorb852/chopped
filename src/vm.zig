@@ -418,24 +418,24 @@ pub const Chip8VM = struct {
     }
     /// Display *n* byte sprite starting from location *I* and drawn at *(Vx, Vy)* XOR'd to the screen, *VF* = collision
     /// Dxyn - DRW Vx, Vy, nibble
-    /// FIX: make horizontal wraps and fix overflow
     fn DRW(self: *Chip8VM, x: u4, y: u4, nibble: u4) void {
         // std.debug.print("[INFO] Drawing {} bytes at ({}, {})\n", .{nibble, self.V[x], self.V[y]});
-        var index: u4 = 0;
         self.V[0xF] = 0;
-        while (index < nibble) : (index += 1) {
-            const vx = @as(i32, self.V[x]);
-            const vy = (@as(usize, self.V[y]) + index) % 32;
 
-            const sprite_row = if (vx <= 56)
-                @as(u64, self.memory[self.I + index]) << @intCast(56 - vx)
-            else
-                @as(u64, self.memory[self.I + index]) >> @intCast(vx - 56);
-            const current_row = self.display[vy];
-            if ((current_row & sprite_row) != 0)
-                self.V[0xF] = 1;
+        for (0..nibble) |index| {
+            const y_coord: u5 = @truncate((self.V[y] + index) & 31);
+            const sprite_row = self.memory[self.I + index];
 
-            self.display[vy] = current_row ^ sprite_row;
+            for (0..8) |offset| {
+                const x_coord: u6 = @truncate((self.V[x] + offset) & 63);
+                const pixel = @intFromBool((sprite_row & (@as(u8, 1) << (7 - @as(u3, @truncate(offset))))) != 0);
+                const current_display = self.display[y_coord];
+                const mask = (@as(u64, pixel) << (63 - x_coord));
+
+                if ((current_display & mask) != 0) self.V[0xF] = 1;
+
+                self.display[y_coord] = current_display ^ mask;
+            }
         }
         self.needs_redraw = true;
         self.PC += 2;
