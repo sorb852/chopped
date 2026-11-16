@@ -223,6 +223,10 @@ pub fn main(init: std.process.Init) !void {
                 std.debug.print("error: stack overflow detected", .{});
                 std.process.exit(1);
             },
+            error.UnknownInstruction => {
+                std.debug.print("error: unknown instruction found at address 0x{x:0>3}", .{chip8.PC});
+                std.process.exit(1);
+            }
         };
 
         if (chip8.needs_redraw) {

@@ -158,7 +158,7 @@ pub const Chip8VM = struct {
     }
 
     /// Fetch, decode, execute cycle. considered a step and runs a single instruction.
-    pub fn step(self: *Chip8VM) error{StackOverflow}!void {
+    pub fn step(self: *Chip8VM) !void {
         if (self.halted) return;
         try self.run_instruction();
     }
@@ -180,7 +180,7 @@ pub const Chip8VM = struct {
     }
     /// Runs current insturction at PC.
     /// With the exception being when LDVK. Which doesn't do anything.
-    fn run_instruction(self: *Chip8VM) error{StackOverflow}!void {
+    fn run_instruction(self: *Chip8VM) error{ StackOverflow, UnknownInstruction }!void {
         if (self.waiting_for_keypress) return;
 
         const instruction = (@as(u16, self.memory[self.PC]) << 8) | self.memory[self.PC + 1];
@@ -261,7 +261,10 @@ pub const Chip8VM = struct {
             },
         }
 
-        // TODO: handle unknown instruction at PC, log or halt
+        if (!matched_instruction) {
+            self.halted = true;
+            return error.UnknownInstruction;
+        }
     }
 
     // Instruction API
@@ -292,8 +295,8 @@ pub const Chip8VM = struct {
             self.halted = true;
             return error.StackOverflow;
         }
-        self.SP += 1;
         self.stack[self.SP] = self.PC;
+        self.SP += 1;
         self.PC = addr;
     }
     /// Skip next instruction if *Vx* == byte
