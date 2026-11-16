@@ -416,7 +416,8 @@ pub const Chip8VM = struct {
         self.V[x] = self.rand.intRangeAtMost(u8, 0, 255) & byte;
         self.PC += 2;
     }
-    /// Display *n* byte sprite starting from location *I* and drawn at *(Vx, Vy)* XOR'd to the screen, *VF* = collision
+    /// Display *n* byte sprite starting from location *I* and drawn at *(Vx, Vy)* XOR'd to the screen, *VF* = collision.
+    /// Wraps around the borders of the screen.
     /// Dxyn - DRW Vx, Vy, nibble
     fn DRW(self: *Chip8VM, x: u4, y: u4, nibble: u4) void {
         // std.debug.print("[INFO] Drawing {} bytes at ({}, {})\n", .{nibble, self.V[x], self.V[y]});
