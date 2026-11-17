@@ -13,7 +13,7 @@ const DEFAULT_TICK_RATE: i32 = 240;
 const DEFAULT_FOREGROUND: rl.Color = .white;
 const DEFAULT_BACKGROUND: rl.Color = .black;
 
-/// Prints the help information onto stderr
+/// Prints the help information onto stdout
 fn print_help(executable: []const u8, writer: *std.Io.Writer) !void {
     try writer.print("Usage: {s} [OPTIONS] <FILE>\n", .{executable});
     try writer.print("\n", .{});
