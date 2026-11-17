@@ -86,8 +86,8 @@ pub const Chip8VM = struct {
             log.warn("error returned while reading rom, {}", .{err});
             return err;
         };
-        log.info("initializing rom, read {} bytes", .{bytes});
         self.halted = false;
+        log.info("initializing rom, read {} bytes", .{bytes});
     }
 
     /// Initialize the hex sprites.
@@ -117,7 +117,7 @@ pub const Chip8VM = struct {
                 error.UnknownInstruction => log.err("unknown instruction 0x{x:0>4} at 0x{x:0>3}", .{ raw_instruction, self.PC }),
                 // else => log.err("failed to parse instruction 0x{x:0>4} at 0x{x:0>3}", .{ raw_instruction, self.PC }),
             }
-            log.debug("PC = 0x{x:3>0}, instruction: 0x{x:4>0}, stack = {any}", .{self.PC, raw_instruction, self.stack});
+            log.debug("PC = 0x{x:3>0}, instruction: 0x{x:4>0}, stack = {any}", .{ self.PC, raw_instruction, self.stack });
             return err;
         };
         if (self.instruction_tracing)
@@ -128,9 +128,9 @@ pub const Chip8VM = struct {
             switch (err) {
                 error.StackOverflow => log.err("stack overflow initiated", .{}),
             }
-            log.info("halting vm due to error", .{});
-            log.debug("Current state of the VM: {}", .{self});
             self.halted = true;
+            log.info("halting vm due to error", .{});
+            log.debug("PC = 0x{x:3>0}, instruction: 0x{x:4>0}, stack = {any}", .{ self.PC, raw_instruction, self.stack });
             return err;
         };
     }
