@@ -7,6 +7,8 @@ const Chip8VM = @import("vm.zig").Chip8VM;
 const color_from_hex = @import("color.zig").color_from_hex;
 const color_to_hex = @import("color.zig").color_to_hex;
 
+const log = std.log.default;
+
 const DEFAULT_SCALE: u8 = 16;
 const DEFAULT_TICK_RATE: i32 = 240;
 const DEFAULT_FOREGROUND: rl.Color = .white;
@@ -46,7 +48,7 @@ pub fn main(init: std.process.Init) !void {
     while (args.next()) |arg| {
         if (std.ascii.eqlIgnoreCase(arg, "--help") or std.ascii.eqlIgnoreCase(arg, "-h")) {
             print_help(executable, &stdout.interface) catch {
-                std.log.err("failed to write help message", .{});
+                log.err("failed to write help message", .{});
                 std.process.exit(1);
             };
             std.process.exit(0);
@@ -60,12 +62,12 @@ pub fn main(init: std.process.Init) !void {
         if (std.ascii.eqlIgnoreCase(arg, "--fg")) {
             if (args.next()) |hex| {
                 foreground = color_from_hex(hex) catch {
-                    std.log.err("invalid hex string for foreground", .{});
+                    log.err("invalid hex string for foreground", .{});
                     std.process.exit(1);
                 };
                 continue;
             } else {
-                std.log.err("no color found for foreground", .{});
+                log.err("no color found for foreground", .{});
                 std.process.exit(1);
             }
         }
@@ -73,12 +75,12 @@ pub fn main(init: std.process.Init) !void {
         if (std.ascii.eqlIgnoreCase(arg, "--bg")) {
             if (args.next()) |hex| {
                 background = color_from_hex(hex) catch {
-                    std.log.err("invalid hex string for background", .{});
+                    log.err("invalid hex string for background", .{});
                     std.process.exit(1);
                 };
                 continue;
             } else {
-                std.log.err("no color found for background", .{});
+                log.err("no color found for background", .{});
                 std.process.exit(1);
             }
         }
@@ -88,21 +90,21 @@ pub fn main(init: std.process.Init) !void {
                 scale = std.fmt.parseInt(@TypeOf(scale), valuestr, 10) catch |err|
                     switch (err) {
                         error.Overflow => {
-                            std.log.err("scale must be an unsigned 8 bit integer", .{});
+                            log.err("scale must be an unsigned 8 bit integer", .{});
                             std.process.exit(1);
                         },
                         error.InvalidCharacter => {
-                            std.log.err("invalid scale", .{});
+                            log.err("invalid scale", .{});
                             std.process.exit(1);
                         },
                     };
                 if (scale <= 0) {
-                    std.log.err("scale must be an unsigned 8 bit integer", .{});
+                    log.err("scale must be an unsigned 8 bit integer", .{});
                     std.process.exit(1);
                 }
                 continue;
             } else {
-                std.log.err("no scale found for option", .{});
+                log.err("no scale found for option", .{});
                 std.process.exit(1);
             }
         }
@@ -112,23 +114,23 @@ pub fn main(init: std.process.Init) !void {
                 target_tickrate = std.fmt.parseInt(@TypeOf(target_tickrate), valuestr, 10) catch |err|
                     switch (err) {
                         error.Overflow => {
-                            std.log.err("target tick rate must be a 32 bit integer", .{});
+                            log.err("target tick rate must be a 32 bit integer", .{});
                             std.process.exit(1);
                         },
                         error.InvalidCharacter => {
-                            std.log.err("invalid tick rate", .{});
+                            log.err("invalid tick rate", .{});
                             std.process.exit(1);
                         },
                     };
                 continue;
             } else {
-                std.log.err("no tick rate found for option", .{});
+                log.err("no tick rate found for option", .{});
                 std.process.exit(1);
             }
         }
 
         if (rom_path) |_| {
-            std.log.err("only one argument for file should be shown", .{});
+            log.err("only one argument for file should be shown", .{});
             std.process.exit(1);
         } else {
             rom_path = arg;
@@ -136,9 +138,11 @@ pub fn main(init: std.process.Init) !void {
     }
 
     if (rom_path == null) {
-        std.log.err("no rom given in arguments", .{});
+        log.err("no rom given in arguments", .{});
         std.process.exit(1);
     }
+
+    log.debug("rom_path = {s}, target_tickrate = {}, raylib_logging = {}, scale = {}, foreground = {s}, background = {s}", .{ rom_path.?, target_tickrate, raylib_logging, scale, color_to_hex(foreground), color_to_hex(background) });
 
     // Initialize chip8
     var prng: std.Random.DefaultPrng = .init(0);
@@ -153,22 +157,22 @@ pub fn main(init: std.process.Init) !void {
     else
         std.Io.Dir.cwd().openFile(init.io, rom_path.?, .{ .allow_directory = false })) catch |err| switch (err) {
         error.FileNotFound => {
-            std.log.err("rom not found", .{});
+            log.err("rom not found", .{});
             std.process.exit(1);
         },
         error.IsDir => {
-            std.log.err("given rom path is not a file", .{});
+            log.err("given rom path is not a file", .{});
             std.process.exit(1);
         },
         else => {
-            std.log.err("failed to open rom, {}", .{err});
+            log.err("failed to open rom, {}", .{err});
             std.process.exit(1);
         },
     };
     defer rom.close(init.io);
     var rom_reader = rom.reader(init.io, &buf);
     chip8.init_rom(&rom_reader.interface) catch |err| {
-        std.log.err("failed to read rom, {}", .{err});
+        log.err("failed to read rom, {}", .{err});
         std.process.exit(1);
     };
 
@@ -177,6 +181,7 @@ pub fn main(init: std.process.Init) !void {
 
     if (!raylib_logging)
         rl.setTraceLogLevel(.none);
+    log.info("creating window with size {}x{}", .{screenWidth, screenHeight});
     rl.initWindow(screenWidth, screenHeight, "Chopped emulator");
     defer rl.closeWindow(); // js close as it ends lol
 
@@ -185,7 +190,7 @@ pub fn main(init: std.process.Init) !void {
     var since_last_tick: f64 = 0;
 
     const display_buffer = rl.loadRenderTexture(screenWidth, screenHeight) catch {
-        std.log.err("failed to create dispaly texture", .{});
+        log.err("failed to create dispaly texture", .{});
         std.process.exit(1);
     };
     defer rl.unloadRenderTexture(display_buffer);
@@ -226,17 +231,17 @@ pub fn main(init: std.process.Init) !void {
         // chip8.step() catch |err| switch (err) {
         //     error.StackOverflow => {
         //         // TODO: Maybe add like diagnostics here too
-        //         std.log.err("stack overflow detected", .{});
+        //         log.err("stack overflow detected", .{});
         //         std.process.exit(1);
         //     },
         //     error.UnknownInstruction => {
-        //         std.log.err("unknown instruction found at address 0x{x:0>3}", .{chip8.PC});
+        //         log.err("unknown instruction found at address 0x{x:0>3}", .{chip8.PC});
         //         std.process.exit(1);
         //     },
         // };
 
         chip8.step() catch |err| {
-            std.log.err("failed to step chip8 program, {}", .{err});
+            log.err("failed to step chip8 program, {}", .{err});
             std.process.exit(1);
         };
 
