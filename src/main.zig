@@ -223,16 +223,21 @@ pub fn main(init: std.process.Init) !void {
             since_last_tick = 0;
         }
 
-        chip8.step() catch |err| switch (err) {
-            error.StackOverflow => {
-                // TODO: Maybe add like diagnostics here too
-                std.log.err("stack overflow detected", .{});
-                std.process.exit(1);
-            },
-            error.UnknownInstruction => {
-                std.log.err("unknown instruction found at address 0x{x:0>3}", .{chip8.PC});
-                std.process.exit(1);
-            },
+        // chip8.step() catch |err| switch (err) {
+        //     error.StackOverflow => {
+        //         // TODO: Maybe add like diagnostics here too
+        //         std.log.err("stack overflow detected", .{});
+        //         std.process.exit(1);
+        //     },
+        //     error.UnknownInstruction => {
+        //         std.log.err("unknown instruction found at address 0x{x:0>3}", .{chip8.PC});
+        //         std.process.exit(1);
+        //     },
+        // };
+
+        chip8.step() catch |err| {
+            std.log.err("failed to step chip8 program, {}", .{err});
+            std.process.exit(1);
         };
 
         if (chip8.needs_redraw) {

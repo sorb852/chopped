@@ -1,14 +1,15 @@
 //! The module for the chip8 interpreter.
 
-// TODO: Either remove all debug prints or make them flag dependent
-
 const std = @import("std");
 
 const Instruction = @import("instructions.zig").Instruction;
 
+const log = @import("std").log.scoped(.vm);
+
 /// Chip8 virtual machine. ie, the backend.
 /// Handles most of the action.
 /// Running games, "*managing*" memory, storing registers and all that.
+/// FIX: PC overflow (or segfault)
 pub const Chip8VM = struct {
     /// Starts main game memory at 512
     memory: [4096]u8 = @splat(0),
@@ -21,10 +22,10 @@ pub const Chip8VM = struct {
     /// Sound timer, use on the frontend to play a tune when non zero.
     ST: u8 = 0,
     /// Program counter
-    PC: u16 = 512,
+    PC: u12 = 512,
     /// Stack counter
     SP: u8 = 0,
-    stack: [16]u16 = @splat(0),
+    stack: [16]u12 = @splat(0),
     /// Keypad represented as such
     /// Shift to get placement of the pad
     /// ```
@@ -62,6 +63,8 @@ pub const Chip8VM = struct {
         0xF0, 0x80, 0xF0, 0x80, 0x80, // F
     },
 
+    /// Enable instruction tracing
+    instruction_tracing: bool = false,
     /// Tells the frontend of the interpreter to redraw.
     /// Dont wanna be redrawing everything would you?
     needs_redraw: bool = true,
@@ -79,13 +82,18 @@ pub const Chip8VM = struct {
     /// Loads the ROM code into memory.
     /// Given a reader to the file.
     pub fn init_rom(self: *Chip8VM, reader: *std.Io.Reader) error{ReadFailed}!void {
-        _ = try reader.readSliceShort(self.memory[512..]);
+        const bytes = reader.readSliceShort(self.memory[512..]) catch |err| {
+            log.warn("error returned while reading rom, {}", .{err});
+            return err;
+        };
+        log.info("initializing rom, read {} bytes", .{bytes});
         self.halted = false;
     }
 
     /// Initialize the hex sprites.
     /// Starts from 0 to 79, with each sprite having 5 bytes.
     pub fn init_sprites(self: *Chip8VM) void {
+        log.debug("initializing sprites", .{});
         @memcpy(self.memory[0..80], &self.font);
     }
 
@@ -97,16 +105,34 @@ pub const Chip8VM = struct {
 
     /// Fetch, decode, execute cycle. considered a step and runs a single instruction.
     pub fn step(self: *Chip8VM) !void {
-        if (self.halted) return;
+        if (self.halted)
+            return;
 
         // Fetch
         const raw_instruction = (@as(u16, self.memory[self.PC]) << 8) | self.memory[self.PC + 1];
 
         // Decode
-        const instruction = try Instruction.parse(raw_instruction);
+        const instruction = Instruction.parse(raw_instruction) catch |err| {
+            switch (err) {
+                error.UnknownInstruction => log.err("unknown instruction 0x{x:0>4} at 0x{x:0>3}", .{ raw_instruction, self.PC }),
+                // else => log.err("failed to parse instruction 0x{x:0>4} at 0x{x:0>3}", .{ raw_instruction, self.PC }),
+            }
+            log.debug("PC = 0x{x:3>0}, instruction: 0x{x:4>0}, stack = {any}", .{self.PC, raw_instruction, self.stack});
+            return err;
+        };
+        if (self.instruction_tracing)
+            log.debug("instruction 0x{x:0>4} at 0x{x:0>3} parsed as {any}", .{ raw_instruction, self.PC, instruction });
 
         // Execute
-        try self.execute(instruction);
+        self.execute(instruction) catch |err| {
+            switch (err) {
+                error.StackOverflow => log.err("stack overflow initiated", .{}),
+            }
+            log.info("halting vm due to error", .{});
+            log.debug("Current state of the VM: {}", .{self});
+            self.halted = true;
+            return err;
+        };
     }
 
     /// Poll input and change state.
@@ -114,20 +140,22 @@ pub const Chip8VM = struct {
     ///
     /// ok obviously not like 2 billion times a second
     pub fn poll_input(self: *Chip8VM, key: u4, up: bool) void {
-        if (up) {
-            if (self.waiting_for_keypress and (self.keyboard & (@as(u16, 1) << key) != 0)) {
+        const key_mask = @as(u16, 1) << key;
+        const current = (self.keyboard & key_mask) != 0;
+
+        if ((up ^ current) == true) {
+            if (up) {
                 self.waiting_for_keypress = false;
                 self.V[self.to_set_keypress_to] = key;
             }
-            self.keyboard |= @as(u16, 1) << key;
-        } else {
-            self.keyboard &= ~(@as(u16, 1) << key);
+            self.keyboard ^= key_mask;
+            log.debug("key 0x{x} changed from {s} to {s}", .{ key, if (current) "up" else "down", if (up) "up" else "down" });
         }
     }
 
     /// Runs current insturction at PC.
     /// With the exception being when LDVK. Which doesn't do anything.
-    fn execute(self: *Chip8VM, instruction: Instruction) !void {
+    fn execute(self: *Chip8VM, instruction: Instruction) error{StackOverflow}!void {
         if (self.waiting_for_keypress) return;
 
         switch (instruction) {
@@ -196,10 +224,8 @@ pub const Chip8VM = struct {
     /// Call a subroutine
     /// 2nnn - CALL addr
     fn CALL(self: *Chip8VM, addr: u12) error{StackOverflow}!void {
-        if (self.SP >= self.stack.len) {
-            self.halted = true;
+        if (self.SP >= self.stack.len)
             return error.StackOverflow;
-        }
         self.stack[self.SP] = self.PC;
         self.SP += 1;
         self.PC = addr;
@@ -327,7 +353,6 @@ pub const Chip8VM = struct {
     /// Wraps around the borders of the screen.
     /// Dxyn - DRW Vx, Vy, nibble
     fn DRW(self: *Chip8VM, x: u4, y: u4, nibble: u4) void {
-        // std.debug.print("[INFO] Drawing {} bytes at ({}, {})\n", .{nibble, self.V[x], self.V[y]});
         self.V[0xF] = 0;
 
         for (0..nibble) |index| {
