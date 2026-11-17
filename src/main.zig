@@ -1,5 +1,4 @@
 // TODO: Sound timer useless, make it not
-// TODO: make all logs use `std.log`
 
 const std = @import("std");
 const rl = @import("raylib");
@@ -47,7 +46,7 @@ pub fn main(init: std.process.Init) !void {
     while (args.next()) |arg| {
         if (std.ascii.eqlIgnoreCase(arg, "--help") or std.ascii.eqlIgnoreCase(arg, "-h")) {
             print_help(executable, &stdout.interface) catch {
-                std.debug.print("error: failed to write help message\n", .{});
+                std.log.err("failed to write help message", .{});
                 std.process.exit(1);
             };
             std.process.exit(0);
@@ -61,12 +60,12 @@ pub fn main(init: std.process.Init) !void {
         if (std.ascii.eqlIgnoreCase(arg, "--fg")) {
             if (args.next()) |hex| {
                 foreground = color_from_hex(hex) catch {
-                    std.debug.print("error: invalid hex string for foreground\n", .{});
+                    std.log.err("invalid hex string for foreground", .{});
                     std.process.exit(1);
                 };
                 continue;
             } else {
-                std.debug.print("error: no color found for foreground\n", .{});
+                std.log.err("no color found for foreground", .{});
                 std.process.exit(1);
             }
         }
@@ -74,12 +73,12 @@ pub fn main(init: std.process.Init) !void {
         if (std.ascii.eqlIgnoreCase(arg, "--bg")) {
             if (args.next()) |hex| {
                 background = color_from_hex(hex) catch {
-                    std.debug.print("error: invalid hex string for background\n", .{});
+                    std.log.err("invalid hex string for background", .{});
                     std.process.exit(1);
                 };
                 continue;
             } else {
-                std.debug.print("error: no color found for background\n", .{});
+                std.log.err("no color found for background", .{});
                 std.process.exit(1);
             }
         }
@@ -89,21 +88,21 @@ pub fn main(init: std.process.Init) !void {
                 scale = std.fmt.parseInt(@TypeOf(scale), valuestr, 10) catch |err|
                     switch (err) {
                         error.Overflow => {
-                            std.debug.print("error: scale must be an unsigned 8 bit integer above 0\n", .{});
+                            std.log.err("scale must be an unsigned 8 bit integer", .{});
                             std.process.exit(1);
                         },
                         error.InvalidCharacter => {
-                            std.debug.print("error: invalid scale\n", .{});
+                            std.log.err("invalid scale", .{});
                             std.process.exit(1);
                         },
                     };
                 if (scale <= 0) {
-                    std.debug.print("error: scale must be an unsigned 8 bit integer above 0\n", .{});
+                    std.log.err("scale must be an unsigned 8 bit integer", .{});
                     std.process.exit(1);
                 }
                 continue;
             } else {
-                std.debug.print("error: no scale found for option\n", .{});
+                std.log.err("no scale found for option", .{});
                 std.process.exit(1);
             }
         }
@@ -113,23 +112,23 @@ pub fn main(init: std.process.Init) !void {
                 target_tickrate = std.fmt.parseInt(@TypeOf(target_tickrate), valuestr, 10) catch |err|
                     switch (err) {
                         error.Overflow => {
-                            std.debug.print("error: target tick rate must be a 32 bit integer\n", .{});
+                            std.log.err("target tick rate must be a 32 bit integer", .{});
                             std.process.exit(1);
                         },
                         error.InvalidCharacter => {
-                            std.debug.print("error: invalid tick rate\n", .{});
+                            std.log.err("invalid tick rate", .{});
                             std.process.exit(1);
                         },
                     };
                 continue;
             } else {
-                std.debug.print("error: no tick rate found for option\n", .{});
+                std.log.err("no tick rate found for option", .{});
                 std.process.exit(1);
             }
         }
 
         if (rom_path) |_| {
-            std.debug.print("error: only one argument for file should be shown\n", .{});
+            std.log.err("only one argument for file should be shown", .{});
             std.process.exit(1);
         } else {
             rom_path = arg;
@@ -137,7 +136,7 @@ pub fn main(init: std.process.Init) !void {
     }
 
     if (rom_path == null) {
-        std.debug.print("error: no rom given in arguments\n", .{});
+        std.log.err("no rom given in arguments", .{});
         std.process.exit(1);
     }
 
@@ -154,22 +153,22 @@ pub fn main(init: std.process.Init) !void {
     else
         std.Io.Dir.cwd().openFile(init.io, rom_path.?, .{ .allow_directory = false })) catch |err| switch (err) {
         error.FileNotFound => {
-            std.debug.print("error: rom not found\n", .{});
+            std.log.err("rom not found", .{});
             std.process.exit(1);
         },
         error.IsDir => {
-            std.debug.print("error: given rom path is not a file\n", .{});
+            std.log.err("given rom path is not a file", .{});
             std.process.exit(1);
         },
         else => {
-            std.debug.print("error: failed to open rom, {}\n", .{err});
+            std.log.err("failed to open rom, {}", .{err});
             std.process.exit(1);
         },
     };
     defer rom.close(init.io);
     var rom_reader = rom.reader(init.io, &buf);
     chip8.init_rom(&rom_reader.interface) catch |err| {
-        std.debug.print("error: failed to read rom, {}\n", .{err});
+        std.log.err("failed to read rom, {}", .{err});
         std.process.exit(1);
     };
 
@@ -186,7 +185,7 @@ pub fn main(init: std.process.Init) !void {
     var since_last_tick: f64 = 0;
 
     const display_buffer = rl.loadRenderTexture(screenWidth, screenHeight) catch {
-        std.debug.print("error: failed to create dispaly texture\n", .{});
+        std.log.err("failed to create dispaly texture", .{});
         std.process.exit(1);
     };
     defer rl.unloadRenderTexture(display_buffer);
@@ -227,11 +226,11 @@ pub fn main(init: std.process.Init) !void {
         chip8.step() catch |err| switch (err) {
             error.StackOverflow => {
                 // TODO: Maybe add like diagnostics here too
-                std.debug.print("error: stack overflow detected\n", .{});
+                std.log.err("stack overflow detected", .{});
                 std.process.exit(1);
             },
             error.UnknownInstruction => {
-                std.debug.print("error: unknown instruction found at address 0x{x:0>3}\n", .{chip8.PC});
+                std.log.err("unknown instruction found at address 0x{x:0>3}", .{chip8.PC});
                 std.process.exit(1);
             },
         };
