@@ -6,6 +6,7 @@ const rl = @import("raylib");
 const Chip8VM = @import("vm.zig").Chip8VM;
 const color_from_hex = @import("color.zig").color_from_hex;
 const color_to_hex = @import("color.zig").color_to_hex;
+const cli = @import("cli.zig");
 
 const log = std.log.default;
 
@@ -14,135 +15,20 @@ const DEFAULT_TICK_RATE: i32 = 240;
 const DEFAULT_FOREGROUND: rl.Color = .white;
 const DEFAULT_BACKGROUND: rl.Color = .black;
 
-/// Prints the help information onto stdout
-fn print_help(executable: []const u8, writer: *std.Io.Writer) !void {
-    try writer.print("Usage: {s} [OPTIONS] <FILE>\n", .{executable});
-    try writer.print("\n", .{});
-    try writer.print("Arguments:\n", .{});
-    try writer.print("\t<FILE>   The chip8 file to be executed.\n", .{});
-    try writer.print("\n", .{});
-    try writer.print("Options:\n", .{});
-    try writer.print("\t--help, -h                            Display help information.\n", .{});
-    try writer.print("\t--fg <HEX_COLOR>                      Change the foreground of the program. Default {s}.\n", .{color_to_hex(DEFAULT_FOREGROUND)});
-    try writer.print("\t--bg <HEX_COLOR>                      Change the background of the program. Default {s}.\n", .{color_to_hex(DEFAULT_BACKGROUND)});
-    try writer.print("\t--enable-raylib-logging               Enable raylib logs.\n", .{});
-    try writer.print("\t--scale <SCALE>, -s <SCALE>           Change the size of each pixel. Default {}px.\n", .{DEFAULT_SCALE});
-    try writer.print("\t--target-tickrate <RATE>, -t <RATE>   Change the tick rate of the emulator. Default {}Hz.\n", .{DEFAULT_TICK_RATE});
-    try writer.flush();
-}
-
 pub fn main(init: std.process.Init) !void {
-    // CLI arguments
-    var rom_path: ?[:0]const u8 = null;
-    var target_tickrate = DEFAULT_TICK_RATE;
-    var raylib_logging = false;
-    var scale = DEFAULT_SCALE;
-    var foreground = DEFAULT_FOREGROUND;
-    var background = DEFAULT_BACKGROUND;
-
-    var stdout_buffer: [4096]u8 = undefined;
+    var stdout_buffer: [4096]u8 = @splat(0);
     var stdout = std.Io.File.stdout().writer(init.io, &stdout_buffer);
 
-    var args = init.minimal.args.iterate();
-    const executable = std.fs.path.stem(args.next().?);
-    while (args.next()) |arg| {
-        if (std.ascii.eqlIgnoreCase(arg, "--help") or std.ascii.eqlIgnoreCase(arg, "-h")) {
-            print_help(executable, &stdout.interface) catch {
-                log.err("failed to write help message", .{});
-                std.process.exit(1);
-            };
-            std.process.exit(0);
-        }
+    const args = cli.parse(init.minimal.args, &stdout);
 
-        if (std.ascii.eqlIgnoreCase(arg, "--enable-raylib-logging")) {
-            raylib_logging = true;
-            continue;
-        }
-
-        if (std.ascii.eqlIgnoreCase(arg, "--fg")) {
-            if (args.next()) |hex| {
-                foreground = color_from_hex(hex) catch {
-                    log.err("invalid hex string for foreground", .{});
-                    std.process.exit(1);
-                };
-                continue;
-            } else {
-                log.err("no color found for foreground", .{});
-                std.process.exit(1);
-            }
-        }
-
-        if (std.ascii.eqlIgnoreCase(arg, "--bg")) {
-            if (args.next()) |hex| {
-                background = color_from_hex(hex) catch {
-                    log.err("invalid hex string for background", .{});
-                    std.process.exit(1);
-                };
-                continue;
-            } else {
-                log.err("no color found for background", .{});
-                std.process.exit(1);
-            }
-        }
-
-        if (std.ascii.eqlIgnoreCase(arg, "--scale") or std.ascii.eqlIgnoreCase(arg, "-s")) {
-            if (args.next()) |valuestr| {
-                scale = std.fmt.parseInt(@TypeOf(scale), valuestr, 10) catch |err|
-                    switch (err) {
-                        error.Overflow => {
-                            log.err("scale must be an unsigned 8 bit integer", .{});
-                            std.process.exit(1);
-                        },
-                        error.InvalidCharacter => {
-                            log.err("invalid scale", .{});
-                            std.process.exit(1);
-                        },
-                    };
-                if (scale <= 0) {
-                    log.err("scale must be an unsigned 8 bit integer", .{});
-                    std.process.exit(1);
-                }
-                continue;
-            } else {
-                log.err("no scale found for option", .{});
-                std.process.exit(1);
-            }
-        }
-
-        if (std.ascii.eqlIgnoreCase(arg, "--target-tickrate") or std.ascii.eqlIgnoreCase(arg, "-t")) {
-            if (args.next()) |valuestr| {
-                target_tickrate = std.fmt.parseInt(@TypeOf(target_tickrate), valuestr, 10) catch |err|
-                    switch (err) {
-                        error.Overflow => {
-                            log.err("target tick rate must be a 32 bit integer", .{});
-                            std.process.exit(1);
-                        },
-                        error.InvalidCharacter => {
-                            log.err("invalid tick rate", .{});
-                            std.process.exit(1);
-                        },
-                    };
-                continue;
-            } else {
-                log.err("no tick rate found for option", .{});
-                std.process.exit(1);
-            }
-        }
-
-        if (rom_path) |_| {
-            log.err("only one argument for file should be shown", .{});
-            std.process.exit(1);
-        } else {
-            rom_path = arg;
-        }
-    }
-
-    if (rom_path == null) {
-        log.err("no rom given in arguments", .{});
-        std.process.exit(1);
-    }
-
-    log.debug("rom_path = {s}, target_tickrate = {}, raylib_logging = {}, scale = {}, foreground = {s}, background = {s}", .{ rom_path.?, target_tickrate, raylib_logging, scale, color_to_hex(foreground), color_to_hex(background) });
+    log.debug("rom_path = {s}, target_tickrate = {}, raylib_logging = {}, scale = {}, foreground = {s}, background = {s}", .{
+        args.rom_path,
+        args.target_tickrate,
+        args.raylib_logging,
+        args.scale,
+        color_to_hex(args.foreground),
+        color_to_hex(args.background),
+    });
 
     // Initialize chip8
     var prng: std.Random.DefaultPrng = .init(0);
@@ -151,11 +37,11 @@ pub fn main(init: std.process.Init) !void {
 
     // Initialize the rom
     var buf: [4096 - 512]u8 = undefined;
-    const rom_path_type = std.fs.path.parsePath(rom_path.?);
+    const rom_path_type = std.fs.path.parsePath(args.rom_path);
     const rom = (if (rom_path_type.kind == .absolute)
-        std.Io.Dir.openFileAbsolute(init.io, rom_path.?, .{ .allow_directory = false })
+        std.Io.Dir.openFileAbsolute(init.io, args.rom_path, .{ .allow_directory = false })
     else
-        std.Io.Dir.cwd().openFile(init.io, rom_path.?, .{ .allow_directory = false })) catch |err| switch (err) {
+        std.Io.Dir.cwd().openFile(init.io, args.rom_path, .{ .allow_directory = false })) catch |err| switch (err) {
         error.FileNotFound => {
             log.err("rom not found", .{});
             std.process.exit(1);
@@ -176,16 +62,16 @@ pub fn main(init: std.process.Init) !void {
         std.process.exit(1);
     };
 
-    const screenWidth = @as(i32, 64) * scale;
-    const screenHeight = @as(i32, 32) * scale;
+    const screenWidth = @as(i32, 64) * args.scale;
+    const screenHeight = @as(i32, 32) * args.scale;
 
-    if (!raylib_logging)
+    if (!args.raylib_logging)
         rl.setTraceLogLevel(.none);
-    log.info("creating window with size {}x{}", .{screenWidth, screenHeight});
+    log.info("creating window with size {}x{}", .{ screenWidth, screenHeight });
     rl.initWindow(screenWidth, screenHeight, "Chopped emulator");
     defer rl.closeWindow(); // js close as it ends lol
 
-    rl.setTargetFPS(target_tickrate);
+    rl.setTargetFPS(args.target_tickrate);
 
     var since_last_tick: f64 = 0;
 
@@ -252,7 +138,7 @@ pub fn main(init: std.process.Init) !void {
                 chip8.needs_redraw = false;
             }
 
-            rl.clearBackground(background);
+            rl.clearBackground(args.background);
 
             var y: usize = 0;
             while (y < 32) : (y += 1) {
@@ -260,11 +146,11 @@ pub fn main(init: std.process.Init) !void {
                 while (x < 64) : (x += 1) {
                     const mask = @as(u64, 1) << @intCast(63 - x);
                     if ((chip8.display[y] & mask) != 0) rl.drawRectangle(
-                        @intCast(x * scale),
-                        @intCast(y * scale),
-                        scale,
-                        scale,
-                        foreground,
+                        @intCast(x * args.scale),
+                        @intCast(y * args.scale),
+                        args.scale,
+                        args.scale,
+                        args.foreground,
                     );
                 }
             }
