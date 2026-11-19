@@ -1,4 +1,5 @@
 //! The module for the chip8 interpreter.
+//! FIX: PC overflowing/segfault
 
 const std = @import("std");
 
@@ -451,3 +452,5 @@ pub const Chip8VM = struct {
         self.PC += 2;
     }
 };
+
+// TODO: add vm tests here
